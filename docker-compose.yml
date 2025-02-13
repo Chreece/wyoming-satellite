@@ -1,38 +1,149 @@
-version: "3.8"
 services:
-  microphone:
-    image: "rhasspy/wyoming-mic-external"
+  wyoming-piper:
+    container_name: piper
+    image: rhasspy/wyoming-piper:latest
     ports:
-      - "10600:10600"
-    devices:
-      - /dev/snd:/dev/snd
-    group_add:
-      - audio
-    command:
-      - "--device"
-      - "sysdefault"
-      - "--debug"
-  playback:
-    image: "rhasspy/wyoming-snd-external"
+      - '10200:10200'
+    volumes:
+      - '~/voice-assistant/piper/data:/data'
+    command: '--voice en_US-ryan-high'
+    restart: unless-stopped
+
+#  piper-recording-studio:
+#    container_name: piper-studio
+#    image: rhasspy/piper-recording-studio
+#    ports:
+#      - '10201:8000'
+#    volumes:
+#      - '~/voice-assistant/piper/studio:/app/output'
+#    restart: unless-stopped
+
+# docker run -it -p 10300:10300 -v /docker/home-assistant-whisper/data:/data rhasspy/wyoming-whisper --model tiny-int8 --language en
+  wyoming-whisper:
+    container_name: whisper
+    build:
+      context: https://github.com/rhasspy/wyoming-faster-whisper
+    command:  
+#      - MODEL=deepdml/faster-whisper-large-v3-turbo-ct2
+      - "--model"
+      - "Systran/faster-distil-whisper-large-v3"
+#    build:
+#      context: ./faster-whisper-cuda-docker/docker/cuda
+#      dockerfile: Dockerfile
     ports:
-      - "10601:10601"
-    devices:
-      - /dev/snd:/dev/snd
-    group_add:
-      - audio
-    command:
-      - "--device"
-      - "sysdefault"
-      - "--debug"
+      - '10300:10300'
+    volumes:
+      - '~/voice-assistant/whisper/data:/data'
+#    command: --model Systran/faster-whisper-large-v3 --beam-size 5 --device cuda
+#    devices:
+#      - /dev/nvidia-uvm:/dev/nvidia-uvm
+#      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+#      - /dev/nvidia0:/dev/nvidia0
+#      - /dev/nvidiactl:/dev/nvidiactl
+#    command: --model deepdml/faster-whisper-large-v3-turbo-ct2 --beam-size 5 --device cuda
+#    command: --model Decoder953/whisper-large-v2-greek-CT2-FP16 --beam-size 5 --device cuda
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+                - gpu
+                - utility
+                - compute
+
+#  wyoming-whisper:
+#    container_name: whisper
+#    image: rhasspy/wyoming-whisper:latest
+#    image: abtools/wyoming-whisper-cuda:latest
+#    build:
+#      context: ./whisper
+#      dockerfile: Dockerfile
+#    ports:
+#      - '10300:10300'
+#    volumes:
+#      - '~/voice-assistant/whisper/data:/data'
+#    command: --model Systran/faster-whisper-large-v3 --beam-size 5 --device cuda
+#    command: --model deepdml/faster-whisper-large-v3-turbo-ct2 --beam-size 5 --device cuda
+#    restart: unless-stopped
+#    runtime: nvidia
+#    deploy:
+#        resources:
+#          reservations:
+#            devices:
+#              - driver: nvidia
+#                count: 1
+#                capabilities: [gpu]
+
+#  wyoming-whispercpp:
+#    container_name: whispercpp
+#    build:
+#      context: ./whisper-cpp
+#      dockerfile: Dockerfile
+#    ports:
+#      - '10301:10301'
+#    volumes:
+#      - '~/voice-assistant/whisper-cpp/data:/data'
+#    command: --model large-v3-q5_0 --language el --beam-size 5 --device cuda
+#    restart: unless-stopped
+#    runtime: nvidia
+#    deploy:
+#        resources:
+#          reservations:
+#            devices:
+#              - driver: nvidia
+ #               count: 1
+#                capabilities: [gpu]
+
+  wyoming-openwakeword:
+    container_name: openwakeword
+    image: rhasspy/wyoming-openwakeword
+    ports:
+      - '10400:10400'
+    volumes:
+      - '~/voice-assistant/openwakeword/data:/data'
+    command: [ "--preload-model", "ok_nabu", "--uri", "tcp://0.0.0.0:10400", "--custom-model-dir", "/custom" ]
+    restart: unless-stopped
+
   satellite:
-    image: "rhasspy/wyoming-satellite"
+    container_name: satellite
+    build:
+      context: https://github.com/Chreece/wyoming-satellite.git#pixelring
+#    image: "rhasspy/wyoming-satellite"
+    restart: unless-stopped
+    volumes:
+      - "/etc/asound.conf:/etc/asound.conf"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "10700:10700"
+    privileged: true
+    ipc: host
+    devices:
+      - "/dev/snd:/dev/snd"
+      - "/dev:/dev"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     command:
-      - "--name"
-      - "my satellite"
-      - "--mic-uri"
-      - "tcp://microphone:10600"
-      - "--snd-uri"
-      - "tcp://playback:10601"
       - "--debug"
+      - "--name"
+      - "Flur Assistant"
+      - "--mic-command"
+      - "arecord --device='hw:CARD=ArrayUAC10,DEV=0' -r 16000 -c 1 -f S16_LE -t raw"
+      - "--snd-command"
+      - "aplay --device='voice_assistant' -r 22050 -c 1 -f S16_LE -t raw"
+      - "--awake-wav"
+      - "sounds/awake.wav"
+      - "--done-wav"
+      - "sounds/done.wav"
+      - "--wake-uri"
+      - "tcp://wyoming-openwakeword:10400"
+      - "--wake-word-name"
+      - "ok_nabu"
+      - "--event-uri" 
+      - "tcp://127.0.0.1:10500"
