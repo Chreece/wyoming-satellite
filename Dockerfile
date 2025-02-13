@@ -12,10 +12,12 @@ COPY sounds/ ./sounds/
 COPY script/setup ./script/
 COPY pyproject.toml ./
 COPY wyoming_satellite/ ./wyoming_satellite/
+COPY examples/ ./examples/
 
 RUN script/setup
 
 COPY script/run ./script/
+COPY script/run_usbmic ./script/
 COPY docker/run ./
 
 EXPOSE 10700

@@ -1,7 +1,8 @@
 *
 !pyproject.toml
 !script/setup
-!script/run
+!script/*
+!examples/*
 !wyoming_satellite/*.py
 !wyoming_satellite/utils
 !wyoming_satellite/VERSION

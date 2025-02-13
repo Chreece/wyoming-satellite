@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 /app/script/run \
-    --uri tcp://0.0.0.0:10700 "$@"
+    --uri tcp://0.0.0.0:10700 "$@" &
+/app/script/run_usbmic \
+    --uri tcp://0.0.0.0:10500 --debug &
+wait
