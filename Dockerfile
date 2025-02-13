@@ -4,8 +4,8 @@ ENV LANG C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install --yes --no-install-recommends avahi-utils alsa-utils build-essential
-
+    apt-get install --yes --no-install-recommends avahi-utils alsa-utils build-essential libusb-1.0-0 libusb-1.0-0-dev
+    
 WORKDIR /app
 
 COPY sounds/ ./sounds/
